@@ -199,9 +199,18 @@ impl DownloadQueue {
             from_hotkey,
             torrent_id: None,
         };
+        // For ZTM, store the lecture page URL (page_url) as the recovery URL rather
+        // than the Hotmart HLS URL. The HLS URL carries an expiring Akamai token, so
+        // restoring from recovery with it would fail. The lecture page URL is stable
+        // and lets ZtmDownloader re-resolve a fresh stream on restoration.
+        let recovery_url = if item.platform == "zerotomastery" {
+            item.page_url.clone().unwrap_or_else(|| item.url.clone())
+        } else {
+            item.url.clone()
+        };
         crate::core::recovery::persist(crate::core::recovery::RecoveryItem {
             id: item.id,
-            url: item.url.clone(),
+            url: recovery_url,
             title: item.title.clone(),
             platform: item.platform.clone(),
             output_dir: item.output_dir.clone(),
@@ -257,7 +266,13 @@ impl DownloadQueue {
             item.file_path = file_path;
             item.file_size_bytes = file_size_bytes;
             item.speed_bytes_per_sec = 0.0;
-            crate::core::recovery::remove(id);
+            if success {
+                // Successful download: remove from recovery (no longer needs restart).
+                crate::core::recovery::remove(id);
+            }
+            // Failed downloads stay in recovery.json so they reappear after a restart
+            // and can be retried. They are removed from recovery when the user explicitly
+            // removes the item or when a retry eventually succeeds.
         }
     }
 
@@ -396,6 +411,23 @@ impl DownloadQueue {
                 item.downloaded_bytes = 0;
                 item.file_path = None;
                 item.file_size_bytes = None;
+                // Re-persist so the item survives a restart that happens during retry.
+                let recovery_url = if item.platform == "zerotomastery" {
+                    item.page_url.clone().unwrap_or_else(|| item.url.clone())
+                } else {
+                    item.url.clone()
+                };
+                crate::core::recovery::persist(crate::core::recovery::RecoveryItem {
+                    id: item.id,
+                    url: recovery_url,
+                    title: item.title.clone(),
+                    platform: item.platform.clone(),
+                    output_dir: item.output_dir.clone(),
+                    download_mode: item.download_mode.clone(),
+                    quality: item.quality.clone(),
+                    format_id: item.format_id.clone(),
+                    referer: item.referer.clone(),
+                });
                 return true;
             }
         }
