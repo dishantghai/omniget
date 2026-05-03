@@ -21,3 +21,5 @@ pub mod reddit;
 pub mod vimeo;
 #[cfg(not(target_os = "android"))]
 pub mod youtube;
+#[cfg(not(target_os = "android"))]
+pub mod ztm;

@@ -33,6 +33,7 @@ pub struct AppState {
     pub active_p2p_sends: ActiveP2pSends,
     pub frontend_ready: Arc<tokio::sync::Mutex<bool>>,
     pub pending_external_events: Arc<tokio::sync::Mutex<Vec<external_url::ExternalUrlEvent>>>,
+    pub course_registry: Arc<std::sync::RwLock<Vec<Arc<dyn omniget_core::platforms::course_traits::CourseDownloader>>>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -49,7 +50,12 @@ pub fn run() {
     registry.register(Arc::new(platforms::reddit::RedditDownloader::new()));
     registry.register(Arc::new(platforms::youtube::YouTubeDownloader::new()));
     registry.register(Arc::new(platforms::vimeo::VimeoDownloader::new()));
+    registry.register(Arc::new(platforms::ztm::ZtmDownloader::new()));
     registry.register(Arc::new(platforms::bilibili::BilibiliDownloader::new()));
+    let mut course_downloaders: Vec<Arc<dyn omniget_core::platforms::course_traits::CourseDownloader>> = Vec::new();
+    course_downloaders.push(Arc::new(platforms::ztm::ZtmDownloader::new()));
+    let course_registry = Arc::new(std::sync::RwLock::new(course_downloaders));
+
     let torrent_session: Arc<tokio::sync::Mutex<Option<Arc<librqbit::Session>>>> =
         Arc::new(tokio::sync::Mutex::new(None));
     registry.register(Arc::new(platforms::magnet::MagnetDownloader::new(
@@ -69,6 +75,7 @@ pub fn run() {
         active_p2p_sends: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
         frontend_ready: Arc::new(tokio::sync::Mutex::new(false)),
         pending_external_events: Arc::new(tokio::sync::Mutex::new(Vec::new())),
+        course_registry,
     };
 
     tauri::Builder::default()
@@ -329,6 +336,11 @@ pub fn run() {
             commands::app_lifecycle::request_app_quit,
             commands::app_lifecycle::force_exit_app,
             commands::app_lifecycle::get_debug_info,
+            commands::course::detect_course_platform,
+            commands::course::get_course_info,
+            commands::course::start_course_download,
+            commands::course::get_supported_course_platforms,
+            commands::course::generate_platform_task,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -1,3 +1,4 @@
+pub mod course_traits;
 pub mod traits;
 
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ pub enum Platform {
     Telegram,
     Vimeo,
     Udemy,
+    ZeroToMastery,
     Bilibili,
     Other(String),
 }
@@ -38,6 +40,7 @@ impl fmt::Display for Platform {
             Platform::Telegram => "telegram",
             Platform::Vimeo => "vimeo",
             Platform::Udemy => "udemy",
+            Platform::ZeroToMastery => "zerotomastery",
             Platform::Bilibili => "bilibili",
             Platform::Other(ref name) => name.as_str(),
         };
@@ -62,6 +65,7 @@ impl FromStr for Platform {
             "telegram" | "tg" => Ok(Platform::Telegram),
             "vimeo" => Ok(Platform::Vimeo),
             "udemy" => Ok(Platform::Udemy),
+            "zerotomastery" | "ztm" => Ok(Platform::ZeroToMastery),
             "bilibili" | "b站" => Ok(Platform::Bilibili),
             _ => Err(format!("Unknown platform: {}", s)),
         }
@@ -115,6 +119,8 @@ impl Platform {
             Some(Platform::Vimeo)
         } else if matches("udemy.com") {
             Some(Platform::Udemy)
+        } else if matches("academy.zerotomastery.io") {
+            Some(Platform::ZeroToMastery)
         } else if matches("bilibili.com") || matches("bilibili.tv") || host == "b23.tv" {
             Some(Platform::Bilibili)
         } else if matches("kiwify.com.br") {
@@ -166,6 +172,7 @@ impl Platform {
             Platform::Telegram,
             Platform::Vimeo,
             Platform::Udemy,
+            Platform::ZeroToMastery,
             Platform::Bilibili,
         ]
     }

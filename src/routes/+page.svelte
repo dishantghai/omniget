@@ -14,6 +14,8 @@
   import SearchResults from "$components/omnibox/SearchResults.svelte";
   import P2pSendDialog from "$components/p2p/P2pSendDialog.svelte";
   import P2pReceiveDialog from "$components/p2p/P2pReceiveDialog.svelte";
+  import CoursePreviewPanel from "$components/course/CoursePreviewPanel.svelte";
+  import CoursePlatformCard from "$components/course/CoursePlatformCard.svelte";
   import { getDownloads } from "$lib/stores/download-store.svelte";
   import { getSettings, updateSettings } from "$lib/stores/settings-store.svelte";
   import { showToast } from "$lib/stores/toast-store.svelte";
@@ -28,6 +30,52 @@
     supported: boolean;
     content_id: string | null;
     content_type: string | null;
+  };
+
+  type KnownCoursePlatform = {
+    name: string;
+    platform_id: string;
+    domains: string[];
+    support_status: { type: string };
+    notes: string;
+    login_url: string | null;
+  };
+
+  type CoursePlatformDetection = {
+    is_course_url: boolean;
+    is_supported: boolean;
+    platform: KnownCoursePlatform | null;
+    can_generate_task: boolean;
+  };
+
+  type CourseLecture = {
+    id: string;
+    title: string;
+    url: string;
+    index: number;
+    duration_seconds: number | null;
+    lecture_type: string;
+    is_free_preview: boolean;
+  };
+
+  type CourseSection = {
+    id: string;
+    title: string;
+    index: number;
+    lectures: CourseLecture[];
+  };
+
+  type CourseInfo = {
+    id: string;
+    title: string;
+    author: string;
+    platform: string;
+    course_url: string;
+    thumbnail_url: string | null;
+    total_lectures: number;
+    total_video_lectures: number;
+    total_duration_seconds: number | null;
+    sections: CourseSection[];
   };
 
   type DownloadStarted = {
@@ -71,7 +119,10 @@
     | { kind: "searching" }
     | { kind: "search-results"; results: SearchResult[] }
     | { kind: "search-empty" }
-    | { kind: "error"; message: string; originalUrl: string; platform: string };
+    | { kind: "error"; message: string; originalUrl: string; platform: string }
+    | { kind: "course-detecting"; coursePlatform: KnownCoursePlatform | null }
+    | { kind: "course-preview"; courseInfo: CourseInfo; coursePlatform: KnownCoursePlatform | null }
+    | { kind: "course-unsupported"; coursePlatform: KnownCoursePlatform | null; sampleUrl: string };
 
   let url = $state("");
   let omniState = $state<OmniState>({ kind: "idle" });
@@ -207,7 +258,9 @@
     }
     if (key && key !== lastBubbleKey) {
       lastBubbleKey = key;
-      bubbleText = pickRandom($t(`mascot.${key}`));
+      const i18nKey = `mascot.${key}`;
+      const translated = $t(i18nKey);
+      bubbleText = translated !== i18nKey ? pickRandom(translated) : "";
     } else if (!key) {
       lastBubbleKey = "";
       bubbleText = "";
@@ -217,7 +270,8 @@
   let showLoopIcon = $derived(
     omniState.kind === "detected" ||
     omniState.kind === "preparing" ||
-    omniState.kind === "batch"
+    omniState.kind === "batch" ||
+    omniState.kind === "course-preview"
   );
 
   let showOmnibox = $derived(
@@ -228,7 +282,9 @@
     omniState.kind === "batch" ||
     omniState.kind === "searching" ||
     omniState.kind === "search-results" ||
-    omniState.kind === "search-empty"
+    omniState.kind === "search-empty" ||
+    omniState.kind === "course-detecting" ||
+    omniState.kind === "course-unsupported"
   );
 
   function isUrl(value: string): boolean {
@@ -282,6 +338,28 @@
   }
 
   async function detectPlatform(value: string) {
+    // Check if this is a course URL first (fast: just URL matching)
+    try {
+      const courseDetection = await invoke<CoursePlatformDetection>("detect_course_platform", { url: value });
+      if (courseDetection.is_course_url) {
+        if (courseDetection.is_supported) {
+          omniState = { kind: "course-detecting", coursePlatform: courseDetection.platform };
+          try {
+            const courseInfo = await invoke<CourseInfo>("get_course_info", { url: value });
+            omniState = { kind: "course-preview", courseInfo, coursePlatform: courseDetection.platform };
+          } catch (e: any) {
+            const msg = typeof e === "string" ? e : e.message ?? $t("omnibox.error");
+            omniState = { kind: "error", message: msg, originalUrl: value, platform: courseDetection.platform?.platform_id ?? "course" };
+          }
+        } else {
+          omniState = { kind: "course-unsupported", coursePlatform: courseDetection.platform, sampleUrl: value };
+        }
+        return;
+      }
+    } catch {
+      // Fall through to normal platform detection if course check fails
+    }
+
     try {
       const result = await invoke<PlatformInfo>("detect_platform", { url: value });
       if (result.supported) {
@@ -651,6 +729,20 @@
       </div>
     {/if}
 
+    {#if omniState.kind === "course-preview"}
+      <CoursePreviewPanel
+        courseInfo={omniState.courseInfo}
+        onDismiss={handleDismiss}
+        onDownloadStarted={() => {
+          const count = omniState.kind === "course-preview"
+            ? omniState.courseInfo.total_video_lectures
+            : 0;
+          showToast("info", $t("course.queued_toast", { count: String(count) }));
+          handleDismiss();
+        }}
+      />
+    {/if}
+
     {#if showOmnibox}
       <OmniboxInput bind:url onInput={handleInput} />
     {/if}
@@ -735,6 +827,19 @@
         </svg>
         <span class="feedback-text">{$t('omnibox.unsupported')}</span>
       </div>
+
+    {:else if omniState.kind === "course-detecting"}
+      <div class="feedback feedback-enter">
+        <span class="feedback-spinner"></span>
+        <span class="feedback-text">{$t('course.detecting')}</span>
+      </div>
+
+    {:else if omniState.kind === "course-unsupported"}
+      <CoursePlatformCard
+        platform={omniState.coursePlatform}
+        sampleUrl={omniState.sampleUrl}
+        onDismiss={handleDismiss}
+      />
 
     {:else if omniState.kind === "preparing"}
       <div class="feedback-card feedback-enter">

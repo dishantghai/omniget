@@ -649,6 +649,25 @@
     "otp_code_label": "Verification Code",
     "verify_code": "Verify Code"
   },
+  "course": {
+    "detecting": "Fetching course structure...",
+    "by_author": "by {{author}}",
+    "video_count": "{{count}} videos",
+    "select_all": "Select all",
+    "selected_count": "{{count}} / {{total}} selected",
+    "select_section": "Select section {{title}}",
+    "quality": "Quality",
+    "quality_best": "Best",
+    "download_selected": "Download {{count}} video(s)",
+    "queuing": "Queuing...",
+    "choose_output_dir": "Choose download folder",
+    "queued_toast": "{{count}} lecture(s) queued",
+    "platform_not_supported": "Platform not supported",
+    "platform_not_supported_desc": "OmniGet doesn't yet support this course platform. You can generate an AI task file that gives Claude Code precise instructions to add support.",
+    "generate_task": "Generate AI Task",
+    "generating_task": "Generating...",
+    "task_generated": "Task file created and opened."
+  },
   "hotmart": {
     "title": "Hotmart",
     "login": "Sign in",

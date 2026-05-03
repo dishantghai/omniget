@@ -43,6 +43,7 @@ pub fn parse_url(url_str: &str) -> Option<ParsedUrl> {
         Platform::Vimeo => parse_vimeo(&segments),
         Platform::Udemy => parse_udemy(&segments),
         Platform::Bilibili => parse_bilibili(&segments),
+        Platform::ZeroToMastery => (None, ParsedContentType::Course),
         Platform::Other(ref name) => match name.as_str() {
             "douyin" => parse_douyin(&segments),
             "tencentvideo" => parse_tencent(&segments),

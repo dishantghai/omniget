@@ -17,6 +17,14 @@
     if (isOpen && dialogEl && !dialogEl.open) {
       previousFocusEl = document.activeElement as HTMLElement;
       dialogEl.showModal();
+    } else if (!isOpen && dialogEl?.open && !closing) {
+      closing = true;
+      setTimeout(() => {
+        closing = false;
+        dialogEl?.close();
+        previousFocusEl?.focus();
+        previousFocusEl = null;
+      }, 150);
     }
   });
 

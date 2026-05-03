@@ -9,6 +9,8 @@ pub mod plugins;
 pub mod settings;
 
 #[cfg(not(target_os = "android"))]
+pub mod course;
+#[cfg(not(target_os = "android"))]
 pub mod dependencies;
 #[cfg(not(target_os = "android"))]
 pub mod search;

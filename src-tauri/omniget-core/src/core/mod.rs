@@ -1,4 +1,5 @@
 pub mod clipboard;
+pub mod known_course_platforms;
 pub mod cookie_parser;
 pub mod course_utils;
 pub mod dependencies;
